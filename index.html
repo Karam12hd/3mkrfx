@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>IRFX_ACCESS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --p: #753ada;
+            --p2: #9b5de5;
+            --p3: #4a1fa8;
+            --pdim: #3d1e7a;
+            --pglow: rgba(117,58,218,0.5);
+            --pfaint: rgba(117,58,218,0.07);
+            --bg: #05000d;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        ::selection { background: var(--p); color: #000; }
+
+        body {
+            background: var(--bg);
+            color: var(--p);
+            font-family: 'Share Tech Mono', 'Courier New', monospace;
+            line-height: 1.7;
+            overflow-x: hidden;
+            min-height: 100vh;
+            cursor: crosshair;
+        }
+
+        /* ── BACKGROUNDS ── */
+        #matrixCanvas {
+            position: fixed; inset: 0;
+            pointer-events: none; z-index: 0; opacity: 0.2;
+        }
+
+        .grid-bg {
+            position: fixed; inset: 0;
+            background-image:
+                linear-gradient(var(--pfaint) 1px, transparent 1px),
+                linear-gradient(90deg, var(--pfaint) 1px, transparent 1px);
+            background-size: 45px 45px;
+            pointer-events: none; z-index: 1;
+        }
+
+        .scanlines {
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(117,58,218,0.03) 0, rgba(117,58,218,0.03) 2px,
+                transparent 2px, transparent 5px
+            );
+            pointer-events: none; z-index: 2;
+            animation: scan 10s linear infinite;
+        }
+        @keyframes scan {
+            from { transform: translateY(-100%); }
+            to   { transform: translateY(100%); }
+        }
+
+        /* corner vignette */
+        .vignette {
+            position: fixed; inset: 0;
+            background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.85) 100%);
+            pointer-events: none; z-index: 3;
+        }
+
+        /* ── FLOATING STATS ── */
+        #liveStats {
+            position: fixed; bottom: 12px; left: 12px;
+            font-size: 9px; color: var(--p2);
+            font-family: 'Share Tech Mono', monospace;
+            background: rgba(5,0,13,0.9);
+            padding: 6px 12px;
+            border-left: 2px solid var(--p);
+            border-bottom: 1px solid var(--pdim);
+            z-index: 50;
+            letter-spacing: 1px;
+        }
+
+        #clockBar {
+            position: fixed; top: 0; left: 0; right: 0;
+            background: rgba(5,0,13,0.95);
+            border-bottom: 1px solid var(--pdim);
+            padding: 5px 15px;
+            font-size: 9px; letter-spacing: 2px;
+            color: var(--pdim); z-index: 50;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        #clockBar span { color: var(--p2); }
+
+        /* ── MAIN CONTAINER ── */
+        .wrap {
+            max-width: 860px;
+            margin: 60px auto 40px;
+            padding: 0 20px;
+            position: relative; z-index: 10;
+        }
+
+        .container {
+            background: rgba(5,0,13,0.92);
+            border: 1px solid var(--p);
+            padding: 45px;
+            position: relative;
+            box-shadow:
+                0 0 0 1px var(--pdim),
+                0 0 40px var(--pglow),
+                inset 0 0 40px rgba(117,58,218,0.04);
+            animation: containerPulse 4s ease-in-out infinite;
+        }
+        @keyframes containerPulse {
+            0%,100% { box-shadow: 0 0 0 1px var(--pdim), 0 0 40px var(--pglow), inset 0 0 40px rgba(117,58,218,0.04); }
+            50%      { box-shadow: 0 0 0 1px var(--p), 0 0 70px var(--pglow), inset 0 0 60px rgba(117,58,218,0.07); }
+        }
+
+        /* corner decorations */
+        .container::before, .container::after {
+            content: '';
+            position: absolute;
+            width: 20px; height: 20px;
+            border-color: var(--p2);
+            border-style: solid;
+        }
+        .container::before { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+        .container::after  { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+
+        /* ── HEADER ── */
+        .header {
+            text-align: center;
+            margin-bottom: 35px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid var(--pdim);
+            position: relative;
+        }
+
+        h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(1.4rem, 4vw, 2.8rem);
+            font-weight: 900;
+            letter-spacing: 6px;
+            color: var(--p);
+            text-shadow: 0 0 10px var(--p), 0 0 30px var(--pglow);
+            animation: titleGlitch 4s infinite;
+            position: relative;
+        }
+
+        @keyframes titleGlitch {
+            0%,90%,100% {
+                text-shadow: 0 0 10px var(--p), 0 0 30px var(--pglow);
+                transform: none;
+            }
+            91% { text-shadow: -3px 0 #ff00ff, 3px 0 #00ffff; transform: skewX(-3deg); }
+            92% { text-shadow: 3px 0 #ff00ff, -3px 0 #00ffff; transform: skewX(3deg); }
+            93% { text-shadow: 0 0 10px var(--p), 0 0 30px var(--pglow); transform: none; }
+            95% { text-shadow: -2px 0 #ff00ff, 2px 0 #00ffff; transform: translateX(2px); }
+            96% { transform: none; }
+        }
+
+        .badge {
+            display: inline-block;
+            background: var(--p);
+            color: #000;
+            padding: 3px 14px;
+            margin-top: 14px;
+            font-size: 0.65rem;
+            letter-spacing: 3px;
+            font-weight: bold;
+            clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+        }
+
+        /* ── GIF SECTION ── */
+        .gif-section {
+            text-align: center;
+            margin: 25px 0 30px;
+            position: relative;
+        }
+
+        .gif-frame {
+            display: inline-block;
+            position: relative;
+        }
+
+        .gif-frame::before, .gif-frame::after {
+            content: '';
+            position: absolute;
+            inset: -6px;
+            border: 1px solid var(--p);
+            animation: frameRotate 6s linear infinite;
+            pointer-events: none;
+        }
+        .gif-frame::after {
+            inset: -12px;
+            border-color: var(--pdim);
+            animation-direction: reverse;
+            animation-duration: 9s;
+        }
+
+        @keyframes frameRotate {
+            0%   { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); opacity: 0.6; }
+            25%  { clip-path: polygon(5% 0, 100% 5%, 95% 100%, 0 95%); opacity: 1; }
+            50%  { clip-path: polygon(0 5%, 95% 0, 100% 95%, 5% 100%); opacity: 0.6; }
+            75%  { clip-path: polygon(5% 5%, 95% 5%, 95% 95%, 5% 95%); opacity: 1; }
+            100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); opacity: 0.6; }
+        }
+
+        .gif-section img {
+            width: 240px;
+            display: block;
+            border: 2px solid var(--p);
+            filter: saturate(1.2) hue-rotate(0deg);
+            animation: gifFloat 3s ease-in-out infinite, gifHue 8s linear infinite;
+            position: relative; z-index: 1;
+        }
+
+        @keyframes gifFloat {
+            0%,100% { transform: translateY(0); }
+            50%      { transform: translateY(-10px); }
+        }
+        @keyframes gifHue {
+            0%   { filter: saturate(1.2) hue-rotate(0deg) drop-shadow(0 0 12px var(--p)); }
+            50%  { filter: saturate(1.5) hue-rotate(20deg) drop-shadow(0 0 20px var(--p2)); }
+            100% { filter: saturate(1.2) hue-rotate(0deg) drop-shadow(0 0 12px var(--p)); }
+        }
+
+        .gif-label {
+            margin-top: 12px;
+            font-size: 0.6rem;
+            color: var(--pdim);
+            letter-spacing: 4px;
+        }
+
+        /* ── STATUS BAR ── */
+        .status-bar {
+            background: rgba(117,58,218,0.05);
+            border: 1px solid var(--pdim);
+            border-left: 3px solid var(--p);
+            padding: 14px 16px;
+            margin: 20px 0;
+            font-size: 0.88rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .status-bar::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--p), transparent);
+            animation: shimmer 3s linear infinite;
+        }
+        @keyframes shimmer {
+            from { transform: translateX(-100%); }
+            to   { transform: translateX(100%); }
+        }
+        .status-bar .lbl { color: var(--p2); font-weight: bold; }
+
+        /* ── TERMINAL OUTPUT ── */
+        #terminalOutput {
+            min-height: 80px;
+            background: #020008;
+            border: 1px solid var(--pdim);
+            border-left: 3px solid var(--p2);
+            padding: 14px 16px;
+            margin: 20px 0;
+            font-size: 0.85rem;
+            position: relative;
+        }
+        #terminalOutput::before {
+            content: 'TERMINAL_v2.1';
+            position: absolute; top: 4px; right: 10px;
+            font-size: 0.6rem; color: var(--pdim); letter-spacing: 2px;
+        }
+
+        /* ── MESSAGE BOX ── */
+        .message-box {
+            background: rgba(117,58,218,0.04);
+            border: 1px solid var(--p);
+            padding: 28px 28px 28px 40px;
+            margin: 25px 0;
+            position: relative;
+        }
+        .message-box::before {
+            content: '//';
+            position: absolute; top: 12px; left: 12px;
+            color: var(--p2); font-size: 1.1rem; font-weight: bold;
+        }
+
+        .msg-title {
+            color: var(--p2);
+            font-family: 'Orbitron', monospace;
+            font-size: 0.9rem;
+            letter-spacing: 3px;
+            margin-bottom: 16px;
+            text-shadow: 0 0 8px var(--p);
+        }
+
+        .msg-line {
+            margin: 10px 0;
+            color: #c8a8ff;
+            font-size: 0.95rem;
+            padding-left: 4px;
+            border-left: 2px solid transparent;
+            transition: border-color 0.3s;
+        }
+        .msg-line:hover { border-left-color: var(--p); color: #fff; }
+
+        /* ── BUTTON ── */
+        .discord-link {
+            display: inline-block;
+            background: transparent;
+            border: 1px solid var(--p);
+            padding: 12px 30px;
+            color: var(--p);
+            text-decoration: none;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            transition: all 0.25s;
+            position: relative;
+            overflow: hidden;
+            margin-top: 18px;
+            clip-path: polygon(10px 0%, 100% 0%, calc(100% - 10px) 100%, 0% 100%);
+        }
+        .discord-link::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: var(--p);
+            transform: translateX(-105%);
+            transition: transform 0.3s ease;
+        }
+        .discord-link:hover::before { transform: translateX(0); }
+        .discord-link:hover { color: #000; box-shadow: 0 0 30px var(--pglow); }
+        .discord-link span { position: relative; z-index: 1; }
+
+        /* ── PROGRESS BARS ── */
+        .progress-section {
+            margin: 20px 0;
+        }
+        .prog-row {
+            display: flex; align-items: center; gap: 10px;
+            margin: 8px 0; font-size: 0.75rem;
+        }
+        .prog-label { width: 140px; color: var(--pdim); flex-shrink: 0; }
+        .prog-bar {
+            flex: 1; height: 4px;
+            background: rgba(117,58,218,0.15);
+            border: 1px solid var(--pdim);
+            position: relative; overflow: hidden;
+        }
+        .prog-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--p3), var(--p2));
+            box-shadow: 0 0 8px var(--p);
+            animation: progLoad 1.5s ease-out forwards;
+            width: 0;
+        }
+        @keyframes progLoad { to { width: var(--w); } }
+        .prog-val { width: 35px; text-align: right; color: var(--p2); font-size: 0.7rem; }
+
+        /* ── SIGNATURE ── */
+        .signature {
+            text-align: right;
+            margin-top: 30px;
+            padding: 14px;
+            border-top: 1px solid var(--pdim);
+            font-size: 0.78rem;
+            color: var(--pdim);
+            line-height: 1.9;
+        }
+        .signature strong { color: var(--p2); }
+
+        /* ── FOOTER ── */
+        .footer {
+            text-align: center;
+            margin-top: 28px;
+            padding-top: 14px;
+            border-top: 1px dashed var(--pdim);
+            font-size: 0.65rem;
+            color: var(--pdim);
+            letter-spacing: 2px;
+        }
+
+        /* ── CURSOR ── */
+        .cursor {
+            display: inline-block;
+            width: 8px; height: 1.1em;
+            background: var(--p2);
+            animation: blink 0.8s infinite;
+            vertical-align: middle; margin-left: 3px;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+        /* ── SHAKE ── */
+        @keyframes shake {
+            0%,100%{transform:translateX(0)}
+            20%{transform:translateX(-4px) skewX(-1deg)}
+            40%{transform:translateX(4px) skewX(1deg)}
+            60%{transform:translateX(-2px)}
+            80%{transform:translateX(2px)}
+        }
+        .shaking { animation: shake 0.25s ease-in-out; }
+
+        /* ── MOBILE ── */
+        @media (max-width: 600px) {
+            .container { padding: 25px 18px; }
+            h1 { letter-spacing: 3px; }
+            .gif-section img { width: 180px; }
+            .prog-label { width: 100px; }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="matrixCanvas"></canvas>
+<div class="grid-bg"></div>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<div id="clockBar">
+    <span id="clockLeft">[ IRFX_SYSTEM ]</span>
+    <span id="clockRight">--:--:--</span>
+</div>
+
+<div id="liveStats">⚡ INITIALIZING...</div>
+
+<div class="wrap">
+    <div class="container" id="mainContainer">
+
+        <!-- HEADER -->
+        <div class="header">
+            <h1>&gt; IRFX_ACCESS <span id="cur">_</span></h1>
+            <div class="badge"># ROOT_ACCESS_GRANTED #</div>
+        </div>
+
+        <!-- GIF -->
+        <div class="gif-section">
+            <div class="gif-frame">
+                <img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExYTF3eG5hazgwNjAzOThiZGk1aTNsNXB2OGIxaTd2bThjemU3dGMwNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Cfiid6I8YDKqrCxAaY/giphy.gif" alt="HACKER" />
+            </div>
+            <div class="gif-label">[ OVERRIDE_IN_PROGRESS... ]</div>
+        </div>
+
+        <!-- STATUS -->
+        <div class="status-bar">
+            <span class="lbl">$&gt; STATUS :</span> سجل دخوله الغامدي <br>
+            <span class="lbl">$&gt; ENCRYPT:</span> ACTIVE — AES-256<br>
+            <span class="lbl">$&gt; TARGET :</span> discord.gg/l1d
+        </div>
+
+        <!-- PROGRESS BARS -->
+        <div class="progress-section">
+            <div class="prog-row">
+                <div class="prog-label">FIREWALL_BYPASS</div>
+                <div class="prog-bar"><div class="prog-fill" style="--w:94%"></div></div>
+                <div class="prog-val">94%</div>
+            </div>
+            <div class="prog-row">
+                <div class="prog-label">DATA_EXTRACT</div>
+                <div class="prog-bar"><div class="prog-fill" style="--w:77%; animation-delay:0.3s"></div></div>
+                <div class="prog-val">77%</div>
+            </div>
+            <div class="prog-row">
+                <div class="prog-label">STEALTH_MODE</div>
+                <div class="prog-bar"><div class="prog-fill" style="--w:100%; animation-delay:0.6s"></div></div>
+                <div class="prog-val">MAX</div>
+            </div>
+        </div>
+
+        <!-- TERMINAL -->
+        <div id="terminalOutput"></div>
+
+        <!-- MESSAGE -->
+        <div class="message-box">
+            <div class="msg-title">✦ MESSAGE_FROM_IRFX ✦</div>
+            <div class="msg-line">السلام عليكم ورحمة الله وبركاته</div>
+            <div class="msg-line">السيرفر كامل ثغرات، الأمان صفر.</div>
+            <div class="msg-line">السيرفر كامل دمبات.</div>
+            <div style="margin-top:22px;">
+                <a href="#" id="discordLink" class="discord-link"><span>&gt;&gt; JOIN_DISCORD &lt;&lt;</span></a>
+            </div>
+            <div style="font-size:0.65rem; margin-top:14px; color:var(--pdim);">[ ACCESS_CODE: IRFX_2026 ]</div>
+        </div>
+
+        <!-- SIGNATURE -->
+        <div class="signature">
+            —<br>
+            <strong>OPTICALY BLACKSHOWER / SANNUITISME</strong><br>
+            🇵🇸 🇩🇿<br>
+            <span id="timestamp"></span>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            [ SYSTEM_BREACHED ] &nbsp;·&nbsp; [ ACCESS_LOGGED ] &nbsp;·&nbsp; [ STEALTH_MODE_ACTIVE ]
+        </div>
+
+    </div>
+</div>
+
+<audio id="bgAudio" loop><source src="aa.mp3" type="audio/mpeg"></audio>
+
+<script>
+(function(){
+    const C = '#753ada', CRGB = '117,58,218';
+
+    /* ── MATRIX RAIN ── */
+    const canvas = document.getElementById('matrixCanvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, drops = [];
+    const chars = "01アイウエオカキクケコサシスセソタチツテトナニヌネノ∞⟁⌬⎔⌁▓░▒";
+
+    function resizeCv(){
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+        drops = Array.from({length: Math.floor(W/18)}, () => Math.random()*-H/18|0);
+    }
+
+    function drawMatrix(){
+        ctx.fillStyle = 'rgba(5,0,13,0.05)';
+        ctx.fillRect(0,0,W,H);
+        ctx.font = '14px "Share Tech Mono", monospace';
+        drops.forEach((y,i)=>{
+            const ch = chars[Math.random()*chars.length|0];
+            const x  = i*18;
+            const yp = y*18;
+            if(yp>0 && yp<H){
+                const a = Math.random()*0.6+0.15;
+                ctx.fillStyle = `rgba(${CRGB},${a})`;
+                ctx.fillText(ch,x,yp);
+            }
+            if(yp>H && Math.random()>0.975) drops[i]=0;
+            drops[i]++;
+        });
+        requestAnimationFrame(drawMatrix);
+    }
+    resizeCv(); drawMatrix();
+    window.addEventListener('resize', resizeCv);
+
+    /* ── CLOCK BAR ── */
+    const clockRight = document.getElementById('clockRight');
+    const tsSpan     = document.getElementById('timestamp');
+
+    function tickClock(){
+        const now = new Date();
+        const t = now.toLocaleTimeString('en-GB');
+        clockRight.textContent = `[ ${t} ]`;
+        tsSpan.innerHTML = `⚡ ${now.toLocaleString()} ⚡`;
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+
+    /* ── LIVE STATS ── */
+    const statsEl = document.getElementById('liveStats');
+    function updateStats(){
+        const conn = (Math.random()*1000+400|0);
+        const pkts = (Math.random()*9999|0);
+        const ping = (Math.random()*30+5|0);
+        statsEl.innerHTML = `⚡ CONN:${conn} | PKT:${pkts} | PING:${ping}ms | STEALTH:ON`;
+    }
+    updateStats(); setInterval(updateStats,2500);
+
+    /* ── TERMINAL ── */
+    const term  = document.getElementById('terminalOutput');
+    const lines = [
+        "$> BOOTING IRFX_KERNEL v4.2...",
+        "$> اما توردها مواريد الابطال ولا استرح وخل المراجل لاهلها...",
+        "$> سيرفركم تعبان...",
+        "$> تسجيل دخول L1 Dev...",
+        "$> اطلع عشان ماتتلغم...",
+        "$> ACCESS_GRANTED ██████████ 100%",
+    ];
+    let li=0, ci=0, txt='';
+
+    function type(){
+        if(li<lines.length){
+            if(ci<lines[li].length){
+                txt += lines[li][ci++];
+                term.innerHTML = txt + '<span class="cursor"></span>';
+                setTimeout(type, ci===1?200:28);
+            } else {
+                txt += '<br>';
+                term.innerHTML = txt + '<span class="cursor"></span>';
+                li++; ci=0;
+                setTimeout(type, 180);
+            }
+        } else {
+            term.innerHTML = txt;
+        }
+    }
+    setTimeout(type, 600);
+
+    /* ── GLITCH EFFECTS ── */
+    const cont  = document.getElementById('mainContainer');
+    const title = document.querySelector('h1');
+
+    setInterval(()=>{
+        if(Math.random()>0.82){
+            cont.classList.add('shaking');
+            cont.addEventListener('animationend',()=>cont.classList.remove('shaking'),{once:true});
+        }
+    }, 3500);
+
+    /* ── CURSOR BLINK ── */
+    const cur = document.getElementById('cur');
+    let show=true;
+    setInterval(()=>{ cur.textContent=(show=!show)?'_':' '; },500);
+
+    /* ── DISCORD LINK ── */
+    document.getElementById('discordLink').addEventListener('click',e=>{
+        e.preventDefault();
+        window.open('https://discord.gg/j7e','_blank');
+    });
+
+    /* ── AUDIO ── */
+    const audio = document.getElementById('bgAudio');
+    const tryPlay = ()=>{ audio.play().catch(()=>{}); };
+    audio.play().catch(()=>{
+        document.addEventListener('click', tryPlay, {once:true});
+        document.addEventListener('keydown', tryPlay, {once:true});
+    });
+
+    /* ── RANDOM TEXT GLITCH ── */
+    const glitchEls = document.querySelectorAll('h1,.msg-title');
+    setInterval(()=>{
+        if(Math.random()>0.93){
+            glitchEls.forEach(el=>{
+                const ox = (Math.random()*6-3).toFixed(1);
+                const oy = (Math.random()*4-2).toFixed(1);
+                el.style.transform = `translate(${ox}px,${oy}px)`;
+                setTimeout(()=>el.style.transform='', 80);
+            });
+        }
+    }, 1800);
+
+})();
+</script>
+</body>
+</html>
